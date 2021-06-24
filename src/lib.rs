@@ -4,11 +4,11 @@
 //!
 //! inspired by
 //! https://github.com/rust-lang/rust/blob/456a03227e3c81a51631f87ec80cac301e5fa6d7/library/std/src/sys/windows/pipe.rs#L48
+#[cfg(windows)]
+use std::os::windows::io::{AsRawHandle, RawHandle};
 use std::pin::Pin;
 use std::process;
 use std::task::{Context, Poll};
-#[cfg(windows)]
-use std::os::windows::io::RawHandle;
 
 #[cfg(not(windows))]
 use stub::*;
@@ -17,8 +17,6 @@ use tokio::io;
 use tokio::net::windows::named_pipe::{
     ClientOptions, NamedPipeClient, NamedPipeServer, ServerOptions,
 };
-#[cfg(windows)]
-use tokio::doc::os::windows::io::AsRawHandle;
 
 #[cfg(not(windows))]
 mod stub {
@@ -68,7 +66,10 @@ mod stub {
         }
     }
 
-    pub(super) fn new_server(name: &str, reject_remote_clients: bool) -> io::Result<NamedPipeServer> {
+    pub(super) fn new_server(
+        name: &str,
+        reject_remote_clients: bool,
+    ) -> io::Result<NamedPipeServer> {
         panic!("stub")
     }
 
@@ -175,9 +176,9 @@ pub async fn anon_pipe() -> io::Result<(AnonPipeRead, AnonPipeWrite)> {
                         // https://github.com/rust-lang/rust/blob/456a03227e3c81a51631f87ec80cac301e5fa6d7/library/std/src/sys/windows/pipe.rs#L101
                         reject_remote_clients = false;
                         tries -= 1;
-                        continue
+                        continue;
                     }
-                    _ => return Err(err)
+                    _ => return Err(err),
                 }
             }
             Err(err) => return Err(err),
@@ -188,7 +189,7 @@ pub async fn anon_pipe() -> io::Result<(AnonPipeRead, AnonPipeWrite)> {
 
         let read = AnonPipeRead { inner: server };
         let write = AnonPipeWrite { inner: client };
-        return Ok((read, write))
+        return Ok((read, write));
     }
 }
 
