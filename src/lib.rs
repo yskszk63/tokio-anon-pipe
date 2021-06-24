@@ -7,6 +7,8 @@
 use std::pin::Pin;
 use std::process;
 use std::task::{Context, Poll};
+#[cfg(windows)]
+use std::os::windows::io::RawHandle;
 
 #[cfg(not(windows))]
 use stub::*;
@@ -15,6 +17,8 @@ use tokio::io;
 use tokio::net::windows::named_pipe::{
     ClientOptions, NamedPipeClient, NamedPipeServer, ServerOptions,
 };
+#[cfg(windows)]
+use tokio::doc::os::windows::io::AsRawHandle;
 
 #[cfg(not(windows))]
 mod stub {
@@ -64,7 +68,7 @@ mod stub {
         }
     }
 
-    pub(super) fn new_server(name: &str) -> io::Result<NamedPipeServer> {
+    pub(super) fn new_server(name: &str, reject_remote_clients: bool) -> io::Result<NamedPipeServer> {
         panic!("stub")
     }
 
@@ -95,12 +99,19 @@ impl io::AsyncRead for AnonPipeRead {
     }
 }
 
+#[cfg(windows)]
+impl AsRawHandle for AnonPipeRead {
+    fn as_raw_handle(&self) -> RawHandle {
+        self.inner.as_raw_handle()
+    }
+}
+
 #[derive(Debug)]
-pub struct AnonPipWrite {
+pub struct AnonPipeWrite {
     inner: NamedPipeClient,
 }
 
-impl io::AsyncWrite for AnonPipWrite {
+impl io::AsyncWrite for AnonPipeWrite {
     fn poll_write(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
@@ -122,12 +133,19 @@ impl io::AsyncWrite for AnonPipWrite {
 }
 
 #[cfg(windows)]
-fn new_server(name: &str) -> io::Result<NamedPipeServer> {
+impl AsRawHandle for AnonPipeWrite {
+    fn as_raw_handle(&self) -> RawHandle {
+        self.inner.as_raw_handle()
+    }
+}
+
+#[cfg(windows)]
+fn new_server(name: &str, reject_remote_clients: bool) -> io::Result<NamedPipeServer> {
     ServerOptions::new()
         .access_inbound(true) // client to server
         .access_outbound(false) // server to client
         .first_pipe_instance(true)
-        .reject_remote_clients(true)
+        .reject_remote_clients(reject_remote_clients)
         .max_instances(1)
         .create(&name)
 }
@@ -137,28 +155,56 @@ fn new_client(name: &str) -> io::Result<NamedPipeClient> {
     ClientOptions::new().read(false).write(true).open(&name)
 }
 
-pub async fn anon_pipe() -> io::Result<(AnonPipeRead, AnonPipWrite)> {
-    // TODO retry
-    let name = genname();
+pub async fn anon_pipe() -> io::Result<(AnonPipeRead, AnonPipeWrite)> {
+    // https://www.rpi.edu/dept/cis/software/g77-mingw32/include/winerror.h
+    const ERROR_ACCESS_DENIED: i32 = 5;
+    const ERROR_INVALID_PARAMETER: i32 = 87;
 
-    let server = new_server(&name)?;
-    let client = new_client(&name)?;
+    let mut tries = 0;
+    let mut reject_remote_clients = true;
+    loop {
+        tries += 1;
+        let name = genname();
 
-    server.connect().await?;
+        let server = match new_server(&name, reject_remote_clients) {
+            Ok(server) => server,
+            Err(err) if tries < 10 => {
+                match err.raw_os_error() {
+                    Some(ERROR_ACCESS_DENIED) => continue,
+                    Some(ERROR_INVALID_PARAMETER) if reject_remote_clients => {
+                        // https://github.com/rust-lang/rust/blob/456a03227e3c81a51631f87ec80cac301e5fa6d7/library/std/src/sys/windows/pipe.rs#L101
+                        reject_remote_clients = false;
+                        tries -= 1;
+                        continue
+                    }
+                    _ => return Err(err)
+                }
+            }
+            Err(err) => return Err(err),
+        };
+        let client = new_client(&name)?;
 
-    let read = AnonPipeRead { inner: server };
-    let write = AnonPipWrite { inner: client };
-    Ok((read, write))
+        server.connect().await?;
+
+        let read = AnonPipeRead { inner: server };
+        let write = AnonPipeWrite { inner: client };
+        return Ok((read, write))
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     #[tokio::test]
     async fn test() -> io::Result<()> {
         let (mut r, mut w) = anon_pipe().await?;
-        println!("{:?} {:?}", r, w);
+
+        w.write_all(b"Hello, World!").await?;
+        let mut buf = vec![];
+        r.read_to_end(&mut buf).await?;
+        assert_eq!(&b"Hello, World!"[..], &buf);
         Ok(())
     }
 }
