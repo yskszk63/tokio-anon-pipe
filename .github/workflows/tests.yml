@@ -1,6 +1,13 @@
 name: tests
 
-on: push
+on:
+  push:
+    branches:
+      - main
+      - dev
+  pull_request:
+  schedule:
+    - cron: '20 9 * * 1'
 
 jobs:
   build:
@@ -8,18 +15,30 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-#    - uses: actions-rs/toolchain@v1
-#      with:
-#        toolchain: stable
-#        override: true
-#        profile: minimal
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+        profile: minimal
+        components: rustfmt, clippy
 
-#    - uses: ilammy/msvc-dev-cmd@v1
-#    - name: c
-#      run: |
-#        cl test.c
-#        dir
-#        ./test.exe
+    - name: Check format
+      uses: actions-rs/cargo@v1
+      with:
+        command: fmt
+        args: -- --check
+
+    - name: Annotate commit with clippy warnings
+      uses: actions-rs/clippy-check@v1
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        args: --all-features
+
+    - name: Security audit
+      uses: actions-rs/audit-check@v1
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+
     - name: Build
       uses: actions-rs/cargo@v1
       with:
