@@ -56,6 +56,9 @@ jobs:
 
   cov:
     runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
     steps:
     - uses: actions/checkout@v2
     - uses: actions-rs/toolchain@v1
