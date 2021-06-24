@@ -1,5 +1,3 @@
-//! # tokio-anon-pipe
-//!
 //! Asynchronous anonymous pipe for Windows.
 //!
 //! inspired by
@@ -10,7 +8,7 @@
 //! ```
 //! use tokio::io::{AsyncReadExt, AsyncWriteExt};
 //!
-//! #[tokio::main]
+//! #[tokio::main(flavor = "current_thread")]
 //! async fn main() -> anyhow::Result<()> {
 //!     let (mut r, mut w) = tokio_anon_pipe::anon_pipe().await?;
 //!
