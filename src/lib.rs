@@ -203,9 +203,10 @@ mod tests {
         let (mut r, mut w) = anon_pipe().await?;
 
         w.write_all(b"Hello, World!").await?;
-        let mut buf = vec![];
-        while buf.len() < "Hello, World!".len() {
-            r.read(&mut buf).await?;
+        let mut buf = vec![0; 13];
+        let mut n = 0;
+        while n < 13 {
+            n += r.read(&mut buf[n..]).await?;
         }
         assert_eq!(&b"Hello, World!"[..], &buf);
         Ok(())
