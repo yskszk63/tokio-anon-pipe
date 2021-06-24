@@ -204,7 +204,9 @@ mod tests {
 
         w.write_all(b"Hello, World!").await?;
         let mut buf = vec![];
-        r.read_to_end(&mut buf).await?;
+        while buf.len() < "Hello, World!".len() {
+            r.read(&mut buf).await?;
+        }
         assert_eq!(&b"Hello, World!"[..], &buf);
         Ok(())
     }
