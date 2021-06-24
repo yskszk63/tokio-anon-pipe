@@ -11,3 +11,4 @@ tokio = { version = "1.7.0", features = ["net"] }
 
 [dev-dependencies]
 tokio = { version = "1.7.0", features = ["macros", "rt", "io-util"] }
+anyhow = "1.0"

@@ -1,9 +1,28 @@
 //! # tokio-anon-pipe
 //!
-//! Asynchronous anonymous pipe for windows.
+//! Asynchronous anonymous pipe for Windows.
 //!
 //! inspired by
 //! https://github.com/rust-lang/rust/blob/456a03227e3c81a51631f87ec80cac301e5fa6d7/library/std/src/sys/windows/pipe.rs#L48
+//!
+//! # Example
+//!
+//! ```
+//! use tokio::io::{AsyncReadExt, AsyncWriteExt};
+//!
+//! #[tokio::main]
+//! async fn main() -> anyhow::Result<()> {
+//!     let (mut r, mut w) = tokio_anon_pipe::anon_pipe().await?;
+//!
+//!     w.write_all(b"HELLO, WORLD!").await?;
+//!
+//!     let mut buf = [0; 16];
+//!     let len = r.read(&mut buf[..]).await?;
+//!
+//!     assert_eq!(&buf[..len], &b"HELLO, WORLD!"[..]);
+//!     Ok(())
+//! }
+//! ```
 #[cfg(windows)]
 use std::os::windows::io::{AsRawHandle, RawHandle};
 use std::pin::Pin;
@@ -199,7 +218,7 @@ mod tests {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     #[tokio::test]
-    async fn test() -> io::Result<()> {
+    async fn test2() -> io::Result<()> {
         let (mut r, mut w) = anon_pipe().await?;
 
         w.write_all(b"Hello, World!").await?;
@@ -210,5 +229,40 @@ mod tests {
         }
         assert_eq!(&b"Hello, World!"[..], &buf);
         Ok(())
+    }
+
+    #[tokio::test]
+    async fn test() {
+        let (mut r, mut w) = anon_pipe().await.unwrap();
+
+        let w_task = tokio::spawn(async move {
+            for n in 0..=65535 {
+                w.write_u32(n).await.unwrap();
+            }
+            //w.shutdown().await.unwrap();
+        });
+
+        let r_task = tokio::spawn(async move {
+            let mut n = 0u32;
+            let mut buf = [0; 4 * 128];
+            while n < 65535 {
+                r.read_exact(&mut buf).await.unwrap();
+                for x in buf.chunks(4) {
+                    assert_eq!(x, n.to_be_bytes());
+                    n += 1;
+                }
+            }
+        });
+        tokio::try_join!(w_task, r_task).unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_write_after_shutdown() {
+        let (r, mut w) = anon_pipe().await.unwrap();
+        w.shutdown().await.unwrap();
+        let result = w.write(b"ok").await;
+        assert!(result.is_ok());
+
+        drop(r)
     }
 }
