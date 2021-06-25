@@ -68,11 +68,15 @@ jobs:
         profile: minimal
         components: llvm-tools-preview
     - name: Install cargo-llvm-cov
-      run: curl -LsSf https://github.com/taiki-e/cargo-llvm-cov/releases/download/v0.1.0-alpha.4/cargo-llvm-cov-x86_64-unknown-linux-gnu.tar.gz | tar xzf - -C ~/.cargo/bin
-    - name: Add path
-      run: echo ~/.cargo/bin >> $GITHUB_PATH
+      uses: actions-rs/cargo@v1
+      with:
+        command: install
+        args: cargo-llvm-cov
     - name: Generate code coverage
-      run: cargo llvm-cov --all-features --lcov --output-path lcov.info
+      uses: actions-rs/cargo@v1
+      with:
+        command: llvm-cov
+        args: --all-features --lcov --output-path lcov.info
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v1
       with:
