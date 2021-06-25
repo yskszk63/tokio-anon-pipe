@@ -1,13 +1,24 @@
 [package]
 name = "tokio-anon-pipe"
 version = "0.1.0"
+authors = ["yskszk63 <yskszk63@gmail.com>"]
 edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+description = "Asynchronous anonymous pipe for Windows."
+license = "MIT/Apache-2.0"
+repository = "https://github.com/yskszk63/tokio-anon-pipe"
+readme = "README.md"
+keywords = ["tokio", "pipe", "async"]
+categories = ["asynchronous"]
 
 [dependencies]
 rand = "0.8.4"
 tokio = { version = "1.7.0", features = ["net"] }
 
 [dev-dependencies]
-tokio = { version = "1.7.0", features = ["macros", "rt"] }
+tokio = { version = "1.7.0", features = ["macros", "rt", "io-util"] }
+anyhow = "1.0"
+
+[package.metadata.docs.rs]
+all-features = true
+default-target = "x86_64-pc-windows-msvc"
+targets = []
