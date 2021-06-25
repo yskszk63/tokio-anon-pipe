@@ -54,31 +54,32 @@ jobs:
         RUST_LOG: trace
         RUST_BACKTRACE: '1'
 
-  cov:
-    runs-on: windows-latest
-    defaults:
-      run:
-        shell: bash
-    steps:
-    - uses: actions/checkout@v2
-    - uses: actions-rs/toolchain@v1
-      with:
-        toolchain: nightly
-        override: true
-        profile: minimal
-        components: llvm-tools-preview
-    - name: Install cargo-llvm-cov
-      uses: actions-rs/cargo@v1
-      with:
-        command: install
-        args: cargo-llvm-cov --version 0.1.0-alpha.4
-    - name: Generate code coverage
-      uses: actions-rs/cargo@v1
-      with:
-        command: llvm-cov
-        args: --all-features --lcov --output-path lcov.info
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v1
-      with:
-        files: lcov.info
+# Currently does not work on Windows
+#  cov:
+#    runs-on: windows-latest
+#    defaults:
+#      run:
+#        shell: bash
+#    steps:
+#    - uses: actions/checkout@v2
+#    - uses: actions-rs/toolchain@v1
+#      with:
+#        toolchain: nightly
+#        override: true
+#        profile: minimal
+#        components: llvm-tools-preview
+#    - name: Install cargo-llvm-cov
+#      uses: actions-rs/cargo@v1
+#      with:
+#        command: install
+#        args: cargo-llvm-cov --version 0.1.0-alpha.4
+#    - name: Generate code coverage
+#      uses: actions-rs/cargo@v1
+#      with:
+#        command: llvm-cov
+#        args: --all-features --lcov --output-path lcov.info
+#    - name: Upload coverage to Codecov
+#      uses: codecov/codecov-action@v1
+#      with:
+#        files: lcov.info
 # vim: set ts=2 sts=2 sw=2:
