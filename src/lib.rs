@@ -9,6 +9,10 @@
 //! > operations. Instead, we create a "hopefully unique" name and create a
 //! > named pipe which has overlapped operations enabled.
 //!
+//! # Supported platform
+//!
+//! `x86_64-pc-windows-msvc` only
+//!
 //! # Example
 //!
 //! ```
