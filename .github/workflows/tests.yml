@@ -71,7 +71,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: install
-        args: cargo-llvm-cov
+        args: cargo-llvm-cov --version 0.1.0-alpha.4
     - name: Generate code coverage
       uses: actions-rs/cargo@v1
       with:
