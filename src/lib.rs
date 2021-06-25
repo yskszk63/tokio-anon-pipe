@@ -2,7 +2,12 @@
 //! Asynchronous anonymous pipe for Windows.
 //!
 //! inspired by
-//! https://github.com/rust-lang/rust/blob/456a03227e3c81a51631f87ec80cac301e5fa6d7/library/std/src/sys/windows/pipe.rs#L48
+//! <https://github.com/rust-lang/rust/blob/456a03227e3c81a51631f87ec80cac301e5fa6d7/library/std/src/sys/windows/pipe.rs#L48>
+//!
+//! > Note that we specifically do *not* use `CreatePipe` here because
+//! > unfortunately the anonymous pipes returned do not support overlapped
+//! > operations. Instead, we create a "hopefully unique" name and create a
+//! > named pipe which has overlapped operations enabled.
 //!
 //! # Example
 //!
@@ -103,6 +108,7 @@ fn genname() -> String {
     format!(r"\\.\pipe\__tokio_anonymous_pipe0__.{}.{}", procid, random)
 }
 
+/// Asyncronous Pipe Read.
 #[derive(Debug)]
 pub struct AnonPipeRead {
     inner: NamedPipeServer,
@@ -125,6 +131,7 @@ impl AsRawHandle for AnonPipeRead {
     }
 }
 
+/// Asyncronous Pipe Write.
 #[derive(Debug)]
 pub struct AnonPipeWrite {
     inner: NamedPipeClient,
@@ -174,6 +181,7 @@ fn new_client(name: &str) -> io::Result<NamedPipeClient> {
     ClientOptions::new().read(false).write(true).open(&name)
 }
 
+/// Open Anonynous Pipe Pair
 pub async fn anon_pipe() -> io::Result<(AnonPipeRead, AnonPipeWrite)> {
     // https://www.rpi.edu/dept/cis/software/g77-mingw32/include/winerror.h
     const ERROR_ACCESS_DENIED: i32 = 5;
