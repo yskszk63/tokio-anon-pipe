@@ -396,6 +396,57 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_we_write() -> io::Result<()> {
+        let (mut r, w) = anon_pipe_we_write()?;
+
+        let mut w = w.connect().await?;
+        w.write_all(b"Hello, World!").await?;
+        let mut buf = vec![0; 13];
+        let mut n = 0;
+        while n < 13 {
+            n += r.read(&mut buf[n..]).await?;
+        }
+        assert_eq!(&b"Hello, World!"[..], &buf);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_we_read() -> io::Result<()> {
+        let (r, mut w) = anon_pipe_we_read()?;
+
+        let mut r = r.connect().await?;
+        w.write_all(b"Hello, World!").await?;
+        let mut buf = vec![0; 13];
+        let mut n = 0;
+        while n < 13 {
+            n += r.read(&mut buf[n..]).await?;
+        }
+        assert_eq!(&b"Hello, World!"[..], &buf);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_dup() -> io::Result<()> {
+        let (r, w) = anon_pipe_we_write()?;
+
+        extern "C" {
+            fn _open_osfhandle(_: isize, _: std::os::raw::c_int) -> std::os::raw::c_int;
+            fn _dup(_: std::os::raw::c_int) -> std::os::raw::c_int;
+        }
+        let h = unsafe { _open_osfhandle(r.into_raw_handle() as isize, 0) };
+        if h < 0 {
+            panic!("failed to _open_osfhandle")
+        }
+        let fd = unsafe { _dup(h) };
+        if fd < 0 {
+            panic!("failed to _dup")
+        }
+
+        w.connect().await?;
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn test() {
         let (mut r, mut w) = anon_pipe().await.unwrap();
 
