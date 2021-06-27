@@ -1,4 +1,4 @@
-#![doc(html_root_url = "https://docs.rs/tokio-anon-pipe/0.1.0")]
+#![doc(html_root_url = "https://docs.rs/tokio-anon-pipe/0.1.1")]
 //! Asynchronous anonymous pipe for Windows.
 //!
 //! inspired by
