@@ -31,6 +31,7 @@
 //!     Ok(())
 //! }
 //! ```
+use std::mem;
 #[cfg(windows)]
 use std::os::windows::io::{AsRawHandle, IntoRawHandle, RawHandle};
 use std::pin::Pin;
@@ -101,12 +102,6 @@ mod stub {
         }
     }
 
-    impl IntoRawHandle for NamedPipeServer {
-        fn into_raw_handle(self) -> RawHandle {
-            panic!("stub")
-        }
-    }
-
     impl AsRawHandle for NamedPipeServer {
         fn as_raw_handle(&self) -> RawHandle {
             panic!("stub")
@@ -141,12 +136,6 @@ mod stub {
             self: Pin<&mut Self>,
             cx: &mut Context<'_>,
         ) -> Poll<Result<(), io::Error>> {
-            panic!("stub")
-        }
-    }
-
-    impl IntoRawHandle for NamedPipeClient {
-        fn into_raw_handle(self) -> RawHandle {
             panic!("stub")
         }
     }
@@ -209,10 +198,12 @@ impl io::AsyncRead for AnonPipeRead {
 
 impl IntoRawHandle for AnonPipeRead {
     fn into_raw_handle(self) -> RawHandle {
-        match self {
-            Self::Server(inner) => inner.into_raw_handle(),
-            Self::Client(inner) => inner.into_raw_handle(),
-        }
+        let h = match &self {
+            Self::Server(inner) => inner.as_raw_handle(),
+            Self::Client(inner) => inner.as_raw_handle(),
+        };
+        mem::forget(self);
+        h
     }
 }
 
@@ -271,10 +262,12 @@ impl io::AsyncWrite for AnonPipeWrite {
 
 impl IntoRawHandle for AnonPipeWrite {
     fn into_raw_handle(self) -> RawHandle {
-        match self {
-            Self::Server(inner) => inner.into_raw_handle(),
-            Self::Client(inner) => inner.into_raw_handle(),
-        }
+        let h = match &self {
+            Self::Server(inner) => inner.as_raw_handle(),
+            Self::Client(inner) => inner.as_raw_handle(),
+        };
+        mem::forget(self);
+        h
     }
 }
 
