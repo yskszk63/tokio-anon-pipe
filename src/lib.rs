@@ -32,7 +32,7 @@
 //! }
 //! ```
 #[cfg(windows)]
-use std::os::windows::io::{AsRawHandle, RawHandle};
+use std::os::windows::io::{AsRawHandle, IntoRawHandle, RawHandle};
 use std::pin::Pin;
 use std::process;
 use std::task::{Context, Poll};
@@ -52,8 +52,19 @@ mod stub {
     //! developing reason.
     use super::*;
 
+    pub(super) type HANDLE = *mut std::ffi::c_void;
+    pub(super) type RawHandle = HANDLE;
+
     #[derive(Debug)]
     pub struct NamedPipeServer;
+
+    pub(super) trait IntoRawHandle {
+        fn into_raw_handle(self) -> RawHandle;
+    }
+
+    pub(super) trait AsRawHandle {
+        fn as_raw_handle(&self) -> RawHandle;
+    }
 
     impl NamedPipeServer {
         pub(super) async fn connect(&self) -> io::Result<()> {
@@ -71,8 +82,49 @@ mod stub {
         }
     }
 
+    impl io::AsyncWrite for NamedPipeServer {
+        fn poll_write(
+            self: Pin<&mut Self>,
+            cx: &mut Context<'_>,
+            buf: &[u8],
+        ) -> Poll<Result<usize, io::Error>> {
+            panic!("stub")
+        }
+        fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+            panic!("stub")
+        }
+        fn poll_shutdown(
+            self: Pin<&mut Self>,
+            cx: &mut Context<'_>,
+        ) -> Poll<Result<(), io::Error>> {
+            panic!("stub")
+        }
+    }
+
+    impl IntoRawHandle for NamedPipeServer {
+        fn into_raw_handle(self) -> RawHandle {
+            panic!("stub")
+        }
+    }
+
+    impl AsRawHandle for NamedPipeServer {
+        fn as_raw_handle(&self) -> RawHandle {
+            panic!("stub")
+        }
+    }
+
     #[derive(Debug)]
     pub struct NamedPipeClient;
+
+    impl io::AsyncRead for NamedPipeClient {
+        fn poll_read(
+            self: Pin<&mut Self>,
+            cx: &mut Context<'_>,
+            buf: &mut io::ReadBuf<'_>,
+        ) -> Poll<io::Result<()>> {
+            panic!("stub")
+        }
+    }
 
     impl io::AsyncWrite for NamedPipeClient {
         fn poll_write(
@@ -93,14 +145,27 @@ mod stub {
         }
     }
 
+    impl IntoRawHandle for NamedPipeClient {
+        fn into_raw_handle(self) -> RawHandle {
+            panic!("stub")
+        }
+    }
+
+    impl AsRawHandle for NamedPipeClient {
+        fn as_raw_handle(&self) -> RawHandle {
+            panic!("stub")
+        }
+    }
+
     pub(super) fn new_server(
         name: &str,
         reject_remote_clients: bool,
+        write: bool,
     ) -> io::Result<NamedPipeServer> {
         panic!("stub")
     }
 
-    pub(super) fn new_client(name: &str) -> io::Result<NamedPipeClient> {
+    pub(super) fn new_client(name: &str, write: bool) -> io::Result<NamedPipeClient> {
         panic!("stub")
     }
 }
@@ -114,66 +179,136 @@ fn genname() -> String {
 
 /// Asyncronous Pipe Read.
 #[derive(Debug)]
-pub struct AnonPipeRead {
-    inner: NamedPipeServer,
+pub enum AnonPipeRead {
+    Server(NamedPipeServer),
+    Client(NamedPipeClient),
+}
+
+impl AnonPipeRead {
+    async fn connect(&self) -> io::Result<()> {
+        match self {
+            Self::Server(inner) => inner.connect().await?,
+            _ => panic!("not a server"),
+        }
+        Ok(())
+    }
 }
 
 impl io::AsyncRead for AnonPipeRead {
     fn poll_read(
-        mut self: Pin<&mut Self>,
+        self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &mut io::ReadBuf<'_>,
     ) -> Poll<io::Result<()>> {
-        Pin::new(&mut self.inner).poll_read(cx, buf)
+        match self.get_mut() {
+            Self::Server(ref mut inner) => Pin::new(inner).poll_read(cx, buf),
+            Self::Client(ref mut inner) => Pin::new(inner).poll_read(cx, buf),
+        }
     }
 }
 
-#[cfg(windows)]
+impl IntoRawHandle for AnonPipeRead {
+    fn into_raw_handle(self) -> RawHandle {
+        match self {
+            Self::Server(inner) => inner.into_raw_handle(),
+            Self::Client(inner) => inner.into_raw_handle(),
+        }
+    }
+}
+
 impl AsRawHandle for AnonPipeRead {
     fn as_raw_handle(&self) -> RawHandle {
-        self.inner.as_raw_handle()
+        match self {
+            Self::Server(inner) => inner.as_raw_handle(),
+            Self::Client(inner) => inner.as_raw_handle(),
+        }
     }
 }
 
 /// Asyncronous Pipe Write.
 #[derive(Debug)]
-pub struct AnonPipeWrite {
-    inner: NamedPipeClient,
+pub enum AnonPipeWrite {
+    Server(NamedPipeServer),
+    Client(NamedPipeClient),
+}
+
+impl AnonPipeWrite {
+    async fn connect(&self) -> io::Result<()> {
+        match self {
+            Self::Server(inner) => inner.connect().await?,
+            _ => panic!("not a server"),
+        }
+        Ok(())
+    }
 }
 
 impl io::AsyncWrite for AnonPipeWrite {
     fn poll_write(
-        mut self: Pin<&mut Self>,
+        self: Pin<&mut Self>,
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<Result<usize, io::Error>> {
-        Pin::new(&mut self.inner).poll_write(cx, buf)
+        match self.get_mut() {
+            Self::Server(ref mut inner) => Pin::new(inner).poll_write(cx, buf),
+            Self::Client(ref mut inner) => Pin::new(inner).poll_write(cx, buf),
+        }
     }
 
-    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
-        Pin::new(&mut self.inner).poll_flush(cx)
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+        match self.get_mut() {
+            Self::Server(ref mut inner) => Pin::new(inner).poll_flush(cx),
+            Self::Client(ref mut inner) => Pin::new(inner).poll_flush(cx),
+        }
     }
 
-    fn poll_shutdown(
-        mut self: Pin<&mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Poll<Result<(), io::Error>> {
-        Pin::new(&mut self.inner).poll_shutdown(cx)
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+        match self.get_mut() {
+            Self::Server(ref mut inner) => Pin::new(inner).poll_shutdown(cx),
+            Self::Client(ref mut inner) => Pin::new(inner).poll_shutdown(cx),
+        }
     }
 }
 
-#[cfg(windows)]
+impl IntoRawHandle for AnonPipeWrite {
+    fn into_raw_handle(self) -> RawHandle {
+        match self {
+            Self::Server(inner) => inner.into_raw_handle(),
+            Self::Client(inner) => inner.into_raw_handle(),
+        }
+    }
+}
+
 impl AsRawHandle for AnonPipeWrite {
     fn as_raw_handle(&self) -> RawHandle {
-        self.inner.as_raw_handle()
+        match self {
+            Self::Server(inner) => inner.as_raw_handle(),
+            Self::Client(inner) => inner.as_raw_handle(),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct Connect<T>(T);
+
+impl Connect<AnonPipeRead> {
+    pub async fn connect(self) -> io::Result<AnonPipeRead> {
+        self.0.connect().await?;
+        Ok(self.0)
+    }
+}
+
+impl Connect<AnonPipeWrite> {
+    pub async fn connect(self) -> io::Result<AnonPipeWrite> {
+        self.0.connect().await?;
+        Ok(self.0)
     }
 }
 
 #[cfg(windows)]
-fn new_server(name: &str, reject_remote_clients: bool) -> io::Result<NamedPipeServer> {
+fn new_server(name: &str, reject_remote_clients: bool, write: bool) -> io::Result<NamedPipeServer> {
     ServerOptions::new()
-        .access_inbound(true) // client to server
-        .access_outbound(false) // server to client
+        .access_inbound(!write) // client to server
+        .access_outbound(write) // server to client
         .first_pipe_instance(true)
         .reject_remote_clients(reject_remote_clients)
         .max_instances(1)
@@ -181,12 +316,11 @@ fn new_server(name: &str, reject_remote_clients: bool) -> io::Result<NamedPipeSe
 }
 
 #[cfg(windows)]
-fn new_client(name: &str) -> io::Result<NamedPipeClient> {
-    ClientOptions::new().read(false).write(true).open(&name)
+fn new_client(name: &str, write: bool) -> io::Result<NamedPipeClient> {
+    ClientOptions::new().read(!write).write(write).open(&name)
 }
 
-/// Open Anonynous Pipe Pair
-pub async fn anon_pipe() -> io::Result<(AnonPipeRead, AnonPipeWrite)> {
+fn try_new_server(write: bool) -> io::Result<(String, NamedPipeServer)> {
     // https://www.rpi.edu/dept/cis/software/g77-mingw32/include/winerror.h
     const ERROR_ACCESS_DENIED: i32 = 5;
     const ERROR_INVALID_PARAMETER: i32 = 87;
@@ -197,7 +331,7 @@ pub async fn anon_pipe() -> io::Result<(AnonPipeRead, AnonPipeWrite)> {
         tries += 1;
         let name = genname();
 
-        let server = match new_server(&name, reject_remote_clients) {
+        let server = match new_server(&name, reject_remote_clients, write) {
             Ok(server) => server,
             Err(err) if tries < 10 => {
                 match err.raw_os_error() {
@@ -213,14 +347,40 @@ pub async fn anon_pipe() -> io::Result<(AnonPipeRead, AnonPipeWrite)> {
             }
             Err(err) => return Err(err),
         };
-        let client = new_client(&name)?;
-
-        //server.connect().await?;
-
-        let read = AnonPipeRead { inner: server };
-        let write = AnonPipeWrite { inner: client };
-        return Ok((read, write));
+        return Ok((name, server));
     }
+}
+
+/// Open Anonynous Pipe Pair
+pub async fn anon_pipe() -> io::Result<(AnonPipeRead, AnonPipeWrite)> {
+    let (name, server) = try_new_server(false)?;
+    let client = new_client(&name, true)?;
+
+    server.connect().await?;
+
+    let read = AnonPipeRead::Server(server);
+    let write = AnonPipeWrite::Client(client);
+    Ok((read, write))
+}
+
+/// Open Anonynous Pipe Pair
+pub fn anon_pipe_we_read() -> io::Result<(Connect<AnonPipeRead>, AnonPipeWrite)> {
+    let (name, server) = try_new_server(false)?;
+    let client = new_client(&name, true)?;
+
+    let read = Connect(AnonPipeRead::Server(server));
+    let write = AnonPipeWrite::Client(client);
+    Ok((read, write))
+}
+
+/// Open Anonynous Pipe Pair
+pub fn anon_pipe_we_write() -> io::Result<(AnonPipeRead, Connect<AnonPipeWrite>)> {
+    let (name, server) = try_new_server(true)?;
+    let client = new_client(&name, false)?;
+
+    let read = AnonPipeRead::Client(client);
+    let write = Connect(AnonPipeWrite::Server(server));
+    Ok((read, write))
 }
 
 #[cfg(test)]
