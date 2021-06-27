@@ -280,10 +280,12 @@ impl AsRawHandle for AnonPipeWrite {
     }
 }
 
+/// Represents connectability.
 #[derive(Debug)]
 pub struct Connect<T>(T);
 
 impl Connect<AnonPipeRead> {
+    /// Connect to pair.
     pub async fn connect(self) -> io::Result<AnonPipeRead> {
         self.0.connect().await?;
         Ok(self.0)
@@ -291,6 +293,7 @@ impl Connect<AnonPipeRead> {
 }
 
 impl Connect<AnonPipeWrite> {
+    /// Connect to pair.
     pub async fn connect(self) -> io::Result<AnonPipeWrite> {
         self.0.connect().await?;
         Ok(self.0)
@@ -344,7 +347,8 @@ fn try_new_server(write: bool) -> io::Result<(String, NamedPipeServer)> {
     }
 }
 
-/// Open Anonynous Pipe Pair
+/// Open Anonynous Pipe Pair.
+/// Pair is connected.
 pub async fn anon_pipe() -> io::Result<(AnonPipeRead, AnonPipeWrite)> {
     let (name, server) = try_new_server(false)?;
     let client = new_client(&name, true)?;
@@ -356,7 +360,8 @@ pub async fn anon_pipe() -> io::Result<(AnonPipeRead, AnonPipeWrite)> {
     Ok((read, write))
 }
 
-/// Open Anonynous Pipe Pair
+/// Open Anonynous Pipe Pair.
+/// Pair is not connected yet.
 pub fn anon_pipe_we_read() -> io::Result<(Connect<AnonPipeRead>, AnonPipeWrite)> {
     let (name, server) = try_new_server(false)?;
     let client = new_client(&name, true)?;
@@ -367,6 +372,7 @@ pub fn anon_pipe_we_read() -> io::Result<(Connect<AnonPipeRead>, AnonPipeWrite)>
 }
 
 /// Open Anonynous Pipe Pair
+/// Pair is not connected yet.
 pub fn anon_pipe_we_write() -> io::Result<(AnonPipeRead, Connect<AnonPipeWrite>)> {
     let (name, server) = try_new_server(true)?;
     let client = new_client(&name, false)?;
