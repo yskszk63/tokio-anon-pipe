@@ -215,7 +215,7 @@ pub async fn anon_pipe() -> io::Result<(AnonPipeRead, AnonPipeWrite)> {
         };
         let client = new_client(&name)?;
 
-        server.connect().await?;
+        //server.connect().await?;
 
         let read = AnonPipeRead { inner: server };
         let write = AnonPipeWrite { inner: client };
