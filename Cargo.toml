@@ -12,10 +12,10 @@ categories = ["asynchronous"]
 
 [dependencies]
 rand = "0.8.4"
-tokio = { version = "1.7.0", features = ["net"] }
+tokio = { version = "1.11.0", features = ["net"] }
 
 [dev-dependencies]
-tokio = { version = "1.7.0", features = ["macros", "rt", "io-util"] }
+tokio = { version = "1.11.0", features = ["macros", "rt", "io-util"] }
 anyhow = "1.0"
 
 [package.metadata.docs.rs]
